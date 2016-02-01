@@ -1,0 +1,47 @@
+apply plugin: 'java'
+apply plugin: 'application'
+apply plugin: 'eclipse'
+
+sourceCompatibility = 1.8
+version = '1.0'
+compileJava.options.encoding = 'UTF-8'
+mainClassName = 'org.client.Client'
+
+jar {
+    manifest {
+        attributes 'Implementation-Title': 'JStreamClient',
+                   'Implementation-Version': version,
+				   'Main-Class': mainClassName
+    }
+}
+
+// create a single Jar with all dependencies
+task fatJar(type: Jar) {
+	manifest {
+		attributes 'Implementation-Title': 'JStreamClient',
+		'Implementation-Version': version,
+		'Main-Class': mainClassName
+	}
+	baseName = project.name + '-all'
+	from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+	with jar
+}
+
+repositories { mavenCentral() }
+
+dependencies {
+	testCompile group: 'junit', name: 'junit', version: '4.+'
+    compile group: 'commons-collections', name: 'commons-collections', version: '3.2'
+}
+
+test { systemProperties 'property': 'value' }
+
+uploadArchives {
+    repositories {
+       flatDir {
+           dirs 'repos'
+       }
+    }
+}
+
+task wrapper(type: Wrapper) { gradleVersion = '2.3' }
