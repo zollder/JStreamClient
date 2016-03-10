@@ -1,4 +1,4 @@
-package org.client;
+package org.client.model;
 
 import java.util.Arrays;
 

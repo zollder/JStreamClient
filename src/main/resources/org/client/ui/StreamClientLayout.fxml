@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import java.lang.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.layout.AnchorPane?>
+
+<AnchorPane prefHeight="450.0" prefWidth="350.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1">
+   <children>
+      <Pane layoutY="0.0" prefHeight="350.0" prefWidth="350.0" AnchorPane.bottomAnchor="100.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+      <ToolBar layoutY="350.0" maxHeight="1.7976931348623157E308" prefHeight="40.0" prefWidth="350.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="350.0">
+        <items>
+          <Button mnemonicParsing="false" text="Setup" />
+            <Button mnemonicParsing="false" text="Play" />
+            <Button mnemonicParsing="false" text="Pause" />
+            <Button mnemonicParsing="false" text="Close" />
+            <Button mnemonicParsing="false" text="Session" />
+        </items>
+      </ToolBar>
+      <Pane layoutY="392.0" prefHeight="60.0" prefWidth="350.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="392.0" />
+   </children>
+</AnchorPane>

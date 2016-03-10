@@ -1,4 +1,4 @@
-package org.client;
+package org.client.model;
 
 import java.nio.ByteBuffer;
 
@@ -24,7 +24,7 @@ import java.nio.ByteBuffer;
 //		|				   delay since last SR (DLSR)				  |
 //		+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-class RtcpPacket
+public class RtcpPacket
 {
 	final static int HEADER_SIZE = 8;
 	final static int BODY_SIZE = 24;
@@ -36,7 +36,7 @@ class RtcpPacket
 	public int length;			// 1 source is always 32 bytes: 8 header, 24 body
 	public int ssrc;			// Ssrc of sender
 	public float fractionLost;	// The fraction of RTP data packets from sender lost since the previous RR packet was sent
-	public int cumLost;			// The total number of RTP data packets from sender that have been lost since the beginning of reception.
+	public int numLost;			// The total number of RTP data packets from sender that have been lost since the beginning of reception.
 	public int highSeqNumber;	// Highest sequence number received
 	public int jitter;			// Not used
 	public int LSR;				// Not used
@@ -46,7 +46,8 @@ class RtcpPacket
 	public byte[] body;		// Bitstream of the body
 
 	// Constructor from field values
-	public RtcpPacket(float fractionLost, int cumLost, int highSeqNb) {
+	public RtcpPacket(float fractionLost, int cumLost, int highSeqNb)
+	{
 		version = 2;
 		padding = 0;
 		reportCount = 1;
@@ -55,7 +56,7 @@ class RtcpPacket
 		//Other fields not used
 
 		this.fractionLost = fractionLost;
-		this.cumLost = cumLost;
+		this.numLost = cumLost;
 		this.highSeqNumber = highSeqNb;
 
 		//Construct the bitstreams
@@ -78,8 +79,8 @@ class RtcpPacket
 	}
 
 	// Constructor from bit stream
-	public RtcpPacket(byte[] packet, int packet_size) {
-
+	public RtcpPacket(byte[] packet, int packet_size)
+	{
 		header = new byte[HEADER_SIZE];
 		body = new byte[BODY_SIZE];
 
@@ -95,7 +96,7 @@ class RtcpPacket
 		// Parse body fields
 		ByteBuffer bb = ByteBuffer.wrap(body); // big-endian by default
 		fractionLost = bb.getFloat();
-		cumLost = bb.getInt();
+		numLost = bb.getInt();
 		highSeqNumber = bb.getInt();
 	}
 
@@ -115,13 +116,14 @@ class RtcpPacket
 	//--------------------------
 	//getlength: return the total length of the RTCP packet
 	//--------------------------
-	public int getlength() {
+	public int getlength()
+	{
 		return (BODY_SIZE + HEADER_SIZE);
 	}
 
 	@Override
 	public String toString() {
 		return "[RTCP] Version: " + version + ", Fraction Lost: " + fractionLost
-			   + ", Cumulative Lost: " + cumLost + ", Highest Seq Num: " + highSeqNumber;
+			   + ", Cumulative Lost: " + numLost + ", Highest Seq Num: " + highSeqNumber;
 	}
 }
