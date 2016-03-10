@@ -5,7 +5,7 @@ apply plugin: 'eclipse'
 sourceCompatibility = 1.8
 version = '1.0'
 compileJava.options.encoding = 'UTF-8'
-mainClassName = 'org.client.Client'
+mainClassName = 'org.client.MainApp'
 
 jar {
     manifest {
@@ -44,4 +44,4 @@ uploadArchives {
     }
 }
 
-task wrapper(type: Wrapper) { gradleVersion = '2.3' }
+task wrapper(type: Wrapper) { gradleVersion = '2.11' }
