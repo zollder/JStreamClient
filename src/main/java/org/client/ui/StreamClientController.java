@@ -25,67 +25,34 @@
  */
 package org.client.ui;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ResourceBundle;
+import javafx.fxml.FXML;
 
 import org.client.MainApp;
 
-import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Node;
-
-public abstract class StreamClientController
+public class StreamClientController
 {
-	protected Node view;
-    protected String fxmlFilePath;
-    protected String resourcePath;
-    
-    private MainApp application;
-    
-    /**
-     * Constructor, is called before #initialize()
-     */
-    public StreamClientController() {}
-    
+	private MainApp application;
+
+	/**
+	 * Constructor, is called before #initialize()
+	 */
+	public StreamClientController() {}
+
    /**
-    * Initializes the controller class. This method is automatically called after the fxml file has been loaded.
-    */
-    @FXML
-    private void initialize()
-    {
-    	// TODO: do something usefu here
-    }
+	* Initializes the controller class. This method is automatically called after the fxml file has been loaded.
+	*/
+	@FXML
+	private void initialize()
+	{
+		// TODO: do something usefu here
+	}
 
-    /**
-     * Is called by the main application to give a reference back to itself.
-     * @param app - main application reference
-     */
-    public void setApplication(MainApp app)
-    {
-    	this.application = app;
-    }
-
-    public abstract void setFxmlFilePath(String filePath);
-
-/*    @Override
-    public void afterPropertiesSet() throws Exception
-    {
-        loadFXML();
-    }*/
-
-    protected final void loadFXML() throws IOException {
-        try (InputStream fxmlStream = getClass().getResourceAsStream(fxmlFilePath)) {
-            FXMLLoader loader = new FXMLLoader();
-            loader.setResources(ResourceBundle.getBundle(this.resourcePath));
-            loader.setController(this);
-            this.view = (loader.load(fxmlStream));
-        } catch (Throwable t) {
-            t.printStackTrace();
-        }
-    }
-
-    public Node getView() {
-        return view;
-    }
+	/**
+	 * Is called by the main application to give a reference back to itself.
+	 * @param app - main application reference
+	 */
+	public void setApplication(MainApp app)
+	{
+		this.application = app;
+	}
 }

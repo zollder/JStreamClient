@@ -1,9 +1,19 @@
-/build/
-*.classpath
-*.project
-*.settings
+### Java template
 *.class
-*.bin
-*.lock
+
+# Package Files #
+*.jar
+*.war
+*.ear
+
+### Gradle template
+.gradle
 .gradle/
+build/
+
 bin/
+build/
+*.project
+*.classpath
+.settings/
+*.lock

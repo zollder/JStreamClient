@@ -15,6 +15,8 @@ import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 
+import org.client.ui.StreamClientController;
+
 public class MainApp extends Application
 {
 	private Stage primaryStage;
@@ -118,6 +120,9 @@ public class MainApp extends Application
 
 			// set client's layout in the center of root
 			rootLayout.setCenter(streamClient);
+
+			StreamClientController clientController = loader.getController();
+			clientController.setApplication(this);
 		}
 		catch (IOException exception) { exception.printStackTrace(); }
 	}
@@ -125,7 +130,8 @@ public class MainApp extends Application
 	/**---------------------------------------------------------------------------------------
 	 * Stops underlying services before closing the primary application stage.
 	 * ---------------------------------------------------------------------------------------*/
-	public void stop(Stage primaryStage)
+	@Override
+	public void stop()
 	{
 		primaryStage.close();
     	System.exit(0);
