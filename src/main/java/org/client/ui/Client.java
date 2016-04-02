@@ -1,4 +1,4 @@
-package org.client.service;
+package org.client.ui;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -28,10 +28,10 @@ import javax.swing.Timer;
 
 import org.client.model.RtcpPacket;
 import org.client.model.RtpPacket;
+import org.client.service.FrameSynchronizer;
 
 /**--------------------------------------------------------------------------------------------------------
  * Client implementation.
- * Run as follows: java Client [Server hostname] [Server RTSP listening port] [Video file requested]
  * --------------------------------------------------------------------------------------------------------*/
 public class Client
 {
@@ -65,13 +65,13 @@ public class Client
 	/**--------------------------------------------------------------------------------------------
 	 * RTSP variables
 	 * --------------------------------------------------------------------------------------------*/
-	Socket rtspSocket;				// RTSP messages socket (send/receive)
-	InetAddress serverIp;
-	static String videoFileName = "movie.Mjpeg";	// video file name
+	private Socket rtspSocket;				// RTSP messages socket (send/receive)
+	private InetAddress serverIp;
 	static int currentState;		// RTSP states: INIT or READY or PLAYING
+
+	static String videoFileName = "movie.Mjpeg";	// video file name
 	int rtspSequenceNumber = 0;		// RTSP message sequence number (within the session)
 	int rtspId = 0;					// RTSP session ID (given by the RTSP Server)
-	int RTSP_SERVER_PORT = 13569;
 
 	//input and output stream filters
 	static BufferedReader rtspBufferedReader;
@@ -597,6 +597,56 @@ public class Client
 			System.exit(0);
 		}
 	}
-}
 
+	//------------------------------------------------------------------------------------------------------
+	public InetAddress getServerIp()
+	{
+		return serverIp;
+	}
+
+	public void setServerIp(InetAddress serverIp)
+	{
+		this.serverIp = serverIp;
+	}
+
+	public Socket getRtspSocket()
+	{
+		return rtspSocket;
+	}
+
+	public void setRtspSocket(Socket rtspSocket)
+	{
+		this.rtspSocket = rtspSocket;
+	}
+
+	public static BufferedReader getRtspBufferedReader()
+	{
+		return rtspBufferedReader;
+	}
+
+	public static void setRtspBufferedReader(BufferedReader rtspBufferedReader)
+	{
+		Client.rtspBufferedReader = rtspBufferedReader;
+	}
+
+	public static BufferedWriter getRtspBufferedWriter()
+	{
+		return rtspBufferedWriter;
+	}
+
+	public static void setRtspBufferedWriter(BufferedWriter rtspBufferedWriter)
+	{
+		Client.rtspBufferedWriter = rtspBufferedWriter;
+	}
+
+	public static int getCurrentState()
+	{
+		return currentState;
+	}
+
+	public static void setCurrentState(int currentState)
+	{
+		Client.currentState = currentState;
+	}
+}
 //end of Class Client

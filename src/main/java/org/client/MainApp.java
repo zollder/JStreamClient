@@ -49,41 +49,6 @@ public class MainApp extends Application
         // init and show UI components
 		initRootLayout();
 		showStreamClient();
-
-/*		//Create a Client object
-		Client client = new Client();
-
-		String host = "localhost";
-		client.serverIp = InetAddress.getByName(host);
-
-		//Establish a TCP connection with the server to exchange RTSP messages
-		client.rtspSocket = new Socket(client.serverIp, client.RTSP_SERVER_PORT);
-
-		// Establish a UDP connection with the server to exchange RTCP control packets
-		// Set input and output stream filters and initial state.
-		Client.rtspBufferedReader = new BufferedReader(new InputStreamReader(client.rtspSocket.getInputStream()));
-		Client.rtspBufferedWriter = new BufferedWriter(new OutputStreamWriter(client.rtspSocket.getOutputStream()));
-		Client.currentState = Client.INIT;
-
-		CommunicationService service = new CommunicationService(new Server());
-
-        Button setupButton = new Button("Setup");
-        Button playButton = new Button("Play");
-        Button pauseButton = new Button("Pause");
-        Button closeButton = new Button("Close");
-        Button sessionButton = new Button("Session");
-
-        // stop application when "close" button is clicked
-        closeButton.setOnAction(new EventHandler<ActionEvent>() {
-            @Override
-            public void handle(ActionEvent event) {
-                System.out.println("Stopping stream server");
-                service.cancel();
-                stop(primaryStage);
-            }
-        });
-
-        service.start();*/
 	}
 
 	/**---------------------------------------------------------------------------------------
