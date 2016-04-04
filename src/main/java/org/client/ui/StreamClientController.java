@@ -5,11 +5,13 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.net.SocketException;
+import java.text.DecimalFormat;
 
 import javafx.application.Platform;
-import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
 
@@ -17,8 +19,8 @@ import org.client.MainApp;
 
 public class StreamClientController
 {
-	private static String SERVER_HOST = "localhost";
-	private int RTSP_SERVER_PORT = 13569;
+	private static final int RTSP_SERVER_PORT = 13569;
+	private static final String SERVER_HOST = "localhost";
 
 	private MainApp application;
 
@@ -40,6 +42,7 @@ public class StreamClientController
 	{
 		// Create a Client object
 		client = new Client();
+		this.updateStat(0, 0, 0);
 	}
 
 	/** Is called by the main application to give a reference back to itself.
@@ -49,19 +52,47 @@ public class StreamClientController
 		this.application = app;
 	}
 
-	/** Handles close operation. */
-	@FXML
-	private void close()
-	{
-		Platform.exit();
-	}
-
 	/** Handles "setup" button operation.
 	 *  Performs RTSP setup routine. */
 	@FXML
 	private void setup()
 	{
-		Platform.exit();
+		System.out.println("Setup Button pressed !");
+		if (Client.currentState == Client.INIT)
+		{
+			//Init non-blocking RTPsocket that will be used to receive data
+			try
+			{
+				//construct a new DatagramSocket to receive RTP packets from the server, on port RTP_RCV_PORT
+				client.rtpSocket = new DatagramSocket(Client.RTP_RCV_PORT);
+				//UDP socket for sending QoS RTCP packets
+				client.rtcpSocket = new DatagramSocket();
+				//set TimeOut value of the socket to 5msec.
+				client.rtpSocket.setSoTimeout(5);
+			}
+			catch (SocketException se)
+			{
+				System.out.println("Socket exception: "+se);
+				System.exit(0);
+			}
+
+			//init RTSP sequence number
+			client.rtspSequenceNumber = 1;
+
+			//Send SETUP message to the server
+			client.sendRtspRequest("SETUP");
+
+			//Wait for the response
+			if (client.parseServerResponse() != 200)
+				System.out.println("Invalid Server Response");
+			else
+			{
+				//change RTSP state and print new state
+				Client.currentState = Client.READY;
+				System.out.println("New RTSP state: READY");
+			}
+		}
+		//else if state != INIT then do nothing
 	}
 
 	/** Handles "play" button operation.
@@ -69,7 +100,32 @@ public class StreamClientController
 	@FXML
 	private void play()
 	{
-		Platform.exit();
+		System.out.println("Play Button pressed!");
+
+		// Start to save the time in stats
+		client.statStartTime = System.currentTimeMillis();
+
+		if (Client.currentState == Client.READY)
+		{
+			client.rtspSequenceNumber++;
+
+			//Send PLAY message to the server
+			client.sendRtspRequest("PLAY");
+
+			if (client.parseServerResponse() != 200)
+				System.out.println("Invalid Server Response");
+			else
+			{
+				//change RTSP state and print out new state
+				Client.currentState = Client.PLAYING;
+				System.out.println("New RTSP state: PLAYING");
+
+				//start the timer
+				client.timer.start();
+				client.rtcpSender.startSend();
+			}
+		}
+		//else if state != READY then do nothing
 	}
 
 	/** Handles "pause" button operation.
@@ -77,7 +133,31 @@ public class StreamClientController
 	@FXML
 	private void pause()
 	{
-		Platform.exit();
+		System.out.println("Pause Button pressed!");
+
+		if (Client.currentState == Client.PLAYING)
+		{
+			//increase RTSP sequence number
+			client.rtspSequenceNumber++;
+
+			//Send PAUSE message to the server
+			client.sendRtspRequest("PAUSE");
+
+			//Wait for the response
+			if (client.parseServerResponse() != 200)
+				System.out.println("Invalid Server Response");
+			else
+			{
+				//change RTSP state and print out new state
+				Client.currentState = Client.READY;
+				System.out.println("New RTSP state: READY");
+
+				//stop the timer
+				client.timer.stop();
+				client.rtcpSender.stopSend();
+			}
+		}
+		//else if state != PLAYING then do nothing
 	}
 
 	/** Handles "session" button operation.
@@ -85,17 +165,56 @@ public class StreamClientController
 	@FXML
 	private void session()
 	{
-		Platform.exit();
+		System.out.println("Sending DESCRIBE request");
+
+		//increase RTSP sequence number
+		client.rtspSequenceNumber++;
+
+		//Send DESCRIBE message to the server
+		client.sendRtspRequest("DESCRIBE");
+
+		// Wait for the response
+		if (client.parseServerResponse() != 200)
+			System.out.println("Invalid Server Response");
+		else
+			System.out.println("Received response for DESCRIBE");
+	}
+
+	/** Handles close operation. */
+	@FXML
+	private void close()
+	{
+		System.out.println("Close Button pressed !");
+
+		//increase RTSP sequence number
+		client.rtspSequenceNumber++;
+
+		//Send TEARDOWN message to the server
+		client.sendRtspRequest("TEARDOWN");
+
+		//Wait for the response
+		if (client.parseServerResponse() != 200)
+			System.out.println("Invalid Server Response");
+		else
+		{
+			//change RTSP state and print out new state
+			Client.currentState = Client.INIT;
+			System.out.println("New RTSP state: INIT");
+
+			//stop the timer
+			client.timer.stop();
+			client.rtcpSender.stopSend();
+
+			Platform.exit();
+		}
 	}
 
 	/**
-	 * Initializes client.
 	 * Establishes communication with the server.
 	 * Blocks execution if the server is not available.
-	 * @return null
 	 * @throws IOException
 	 */
-	public Task<Client> connect() throws IOException
+	public void connect() throws IOException
 	{
 		// initialize client
 		client.setServerIp(InetAddress.getByName(SERVER_HOST));
@@ -105,20 +224,22 @@ public class StreamClientController
 
 		// Establish a UDP connection with the server to exchange RTCP control packets
 		// Set input and output stream filters and initial state.
-		Client.setRtspBufferedReader(new BufferedReader(new InputStreamReader(client.getRtspSocket().getInputStream())));
-		Client.setRtspBufferedWriter(new BufferedWriter(new OutputStreamWriter(client.getRtspSocket().getOutputStream())));
-		Client.setCurrentState(0);
-
-		return null;
+		Client.rtspBufferedReader = new BufferedReader(new InputStreamReader(client.getRtspSocket().getInputStream()));
+		Client.rtspBufferedWriter = new BufferedWriter(new OutputStreamWriter(client.getRtspSocket().getOutputStream()));
+		Client.currentState = Client.INIT;
 	}
 
-	public Label getBytesReceived()
+	/**
+	 * Updates statistics data labels.
+	 * @param bytesReceived
+	 * @param fractionLost
+	 * @param dataRate
+	 */
+	public void updateStat(int bytesReceived, float fractionLost, double dataRate)
 	{
-		return bytesReceived;
-	}
-
-	public void setBytesReceived(Label bytesReceived)
-	{
-		this.bytesReceived = bytesReceived;
+		DecimalFormat formatter = new DecimalFormat("###,###.##");
+		this.bytesReceived.setText(String.valueOf(bytesReceived));
+		this.packetsLost.setText(formatter.format(fractionLost));
+		this.dataRate.setText(formatter.format(dataRate));
 	}
 }

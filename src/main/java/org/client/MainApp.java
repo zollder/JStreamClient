@@ -88,6 +88,7 @@ public class MainApp extends Application
 
 			StreamClientController clientController = loader.getController();
 			clientController.setApplication(this);
+			clientController.connect();
 		}
 		catch (IOException exception) { exception.printStackTrace(); }
 	}

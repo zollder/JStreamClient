@@ -2,7 +2,6 @@ package org.client.ui;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
-import java.awt.GridLayout;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -14,13 +13,11 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.net.SocketException;
 import java.text.DecimalFormat;
 import java.util.Random;
 import java.util.StringTokenizer;
 
 import javax.swing.ImageIcon;
-import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -29,6 +26,7 @@ import javax.swing.Timer;
 import org.client.model.RtcpPacket;
 import org.client.model.RtpPacket;
 import org.client.service.FrameSynchronizer;
+import org.junit.Assert;
 
 /**--------------------------------------------------------------------------------------------------------
  * Client implementation.
@@ -39,13 +37,7 @@ public class Client
 	 * GUI.
 	 * --------------------------------------------------------------------------------------------*/
 	JFrame frame = new JFrame("Client");
-	JButton setupButton = new JButton("Setup");
-	JButton playButton = new JButton("Play");
-	JButton pauseButton = new JButton("Pause");
-	JButton tearButton = new JButton("Close");
-	JButton describeButton = new JButton("Session");
 	JPanel mainPanel = new JPanel();
-	JPanel buttonPanel = new JPanel();
 	JLabel statLabel1 = new JLabel();
 	JLabel statLabel2 = new JLabel();
 	JLabel statLabel3 = new JLabel();
@@ -117,18 +109,6 @@ public class Client
 	 * --------------------------------------------------------------------------------------------*/
 	public Client()
 	{
-		// Buttons
-		buttonPanel.setLayout(new GridLayout(1,0));
-		buttonPanel.add(setupButton);
-		buttonPanel.add(playButton);
-		buttonPanel.add(pauseButton);
-		buttonPanel.add(tearButton);
-		buttonPanel.add(describeButton);
-		setupButton.addActionListener(new setupButtonListener());
-		playButton.addActionListener(new playButtonListener());
-		pauseButton.addActionListener(new pauseButtonListener());
-		tearButton.addActionListener(new tearButtonListener());
-		describeButton.addActionListener(new describeButtonListener());
 
 		// Statistics
 		statLabel1.setText("Total Bytes Received: 0");
@@ -141,12 +121,10 @@ public class Client
 		// frame layout
 		mainPanel.setLayout(null);
 		mainPanel.add(iconLabel);
-		mainPanel.add(buttonPanel);
 		mainPanel.add(statLabel1);
 		mainPanel.add(statLabel2);
 		mainPanel.add(statLabel3);
 		iconLabel.setBounds(0,0,380,280);
-		buttonPanel.setBounds(0,280,380,50);
 		statLabel1.setBounds(0,330,380,20);
 		statLabel2.setBounds(0,350,380,20);
 		statLabel3.setBounds(0,370,380,20);
@@ -164,189 +142,6 @@ public class Client
 		frameSynchronizer = new FrameSynchronizer(100);
 	}
 
-	//------------------------------------
-	//Handler for buttons
-	//------------------------------------
-
-	//Handler for Setup button
-	//-----------------------
-	class setupButtonListener implements ActionListener
-	{
-		@Override
-		public void actionPerformed(ActionEvent e)
-		{
-			System.out.println("Setup Button pressed !");
-			if (currentState == INIT)
-			{
-				//Init non-blocking RTPsocket that will be used to receive data
-				try
-				{
-					//construct a new DatagramSocket to receive RTP packets from the server, on port RTP_RCV_PORT
-					rtpSocket = new DatagramSocket(RTP_RCV_PORT);
-					//UDP socket for sending QoS RTCP packets
-					rtcpSocket = new DatagramSocket();
-					//set TimeOut value of the socket to 5msec.
-					rtpSocket.setSoTimeout(5);
-				}
-				catch (SocketException se)
-				{
-					System.out.println("Socket exception: "+se);
-					System.exit(0);
-				}
-
-				//init RTSP sequence number
-				rtspSequenceNumber = 1;
-
-				//Send SETUP message to the server
-				sendRtspRequest("SETUP");
-
-				//Wait for the response
-				if (parseServerResponse() != 200)
-					System.out.println("Invalid Server Response");
-				else
-				{
-					//change RTSP state and print new state
-					currentState = READY;
-					System.out.println("New RTSP state: READY");
-				}
-			}
-			//else if state != INIT then do nothing
-		}
-	}
-
-	/**----------------------------------------------------------------------------------------------
-	 * Play button handler.
-	 * ----------------------------------------------------------------------------------------------*/
-	class playButtonListener implements ActionListener
-	{
-		@Override
-		public void actionPerformed(ActionEvent e)
-		{
-			System.out.println("Play Button pressed!");
-
-			// Start to save the time in stats
-			statStartTime = System.currentTimeMillis();
-
-			if (currentState == READY)
-			{
-				rtspSequenceNumber++;
-
-				//Send PLAY message to the server
-				sendRtspRequest("PLAY");
-
-				if (parseServerResponse() != 200)
-					System.out.println("Invalid Server Response");
-				else
-				{
-					//change RTSP state and print out new state
-					currentState = PLAYING;
-					System.out.println("New RTSP state: PLAYING");
-
-					//start the timer
-					timer.start();
-					rtcpSender.startSend();
-				}
-			}
-			//else if state != READY then do nothing
-		}
-	}
-
-	/**----------------------------------------------------------------------------------------------
-	 * Pause button handler.
-	 * ----------------------------------------------------------------------------------------------*/
-	class pauseButtonListener implements ActionListener
-	{
-		@Override
-		public void actionPerformed(ActionEvent e)
-		{
-			System.out.println("Pause Button pressed!");
-
-			if (currentState == PLAYING)
-			{
-				//increase RTSP sequence number
-				rtspSequenceNumber++;
-
-				//Send PAUSE message to the server
-				sendRtspRequest("PAUSE");
-
-				//Wait for the response
-				if (parseServerResponse() != 200)
-					System.out.println("Invalid Server Response");
-				else
-				{
-					//change RTSP state and print out new state
-					currentState = READY;
-					System.out.println("New RTSP state: READY");
-
-					//stop the timer
-					timer.stop();
-					rtcpSender.stopSend();
-				}
-			}
-			//else if state != PLAYING then do nothing
-		}
-	}
-
-	/**----------------------------------------------------------------------------------------------
-	 * Teardown button handler.
-	 * ----------------------------------------------------------------------------------------------*/
-	class tearButtonListener implements ActionListener
-	{
-		@Override
-		public void actionPerformed(ActionEvent e)
-		{
-			System.out.println("Teardown Button pressed !");
-
-			//increase RTSP sequence number
-			rtspSequenceNumber++;
-
-			//Send TEARDOWN message to the server
-			sendRtspRequest("TEARDOWN");
-
-			//Wait for the response
-			if (parseServerResponse() != 200)
-				System.out.println("Invalid Server Response");
-			else
-			{
-				//change RTSP state and print out new state
-				currentState = INIT;
-				System.out.println("New RTSP state: INIT");
-
-				//stop the timer
-				timer.stop();
-				rtcpSender.stopSend();
-
-				//exit
-				System.exit(0);
-			}
-		}
-	}
-
-	//
-	/**----------------------------------------------------------------------------------------------
-	 * Returns data stream info.
-	 * ----------------------------------------------------------------------------------------------*/
-	class describeButtonListener implements ActionListener
-	{
-		@Override
-		public void actionPerformed(ActionEvent e)
-		{
-			System.out.println("Sending DESCRIBE request");
-
-			//increase RTSP sequence number
-			rtspSequenceNumber++;
-
-			//Send DESCRIBE message to the server
-			sendRtspRequest("DESCRIBE");
-
-			// Wait for the response
-			if (parseServerResponse() != 200)
-				System.out.println("Invalid Server Response");
-			else
-				System.out.println("Received response for DESCRIBE");
-		}
-	}
-
 	/**----------------------------------------------------------------------------------------------
 	 * Handler for timer.
 	 * ----------------------------------------------------------------------------------------------*/
@@ -355,7 +150,7 @@ public class Client
 		@Override
 		public void actionPerformed(ActionEvent e)
 		{
-			//Construct a DatagramPacket to receive data from the UDP socket
+			// Construct a DatagramPacket to receive data from the UDP socket
 			rcvUdpPacket = new DatagramPacket(rcvBuffer, rcvBuffer.length);
 
 			try
@@ -504,17 +299,18 @@ public class Client
 	/**----------------------------------------------------------------------------------------------
 	 * Parse Server Response.
 	 * ----------------------------------------------------------------------------------------------*/
-	private int parseServerResponse()
+	public int parseServerResponse()
 	{
 		int replyCode = 0;
 		try
 		{
 			//parse status line and extract the reply_code:
-			String StatusLine = rtspBufferedReader.readLine();
+			String statusLine = rtspBufferedReader.readLine();
+			Assert.assertNotNull(statusLine);
 			System.out.println("RTSP Client - Received from Server:");
-			System.out.println(StatusLine);
+			System.out.println(statusLine);
 
-			StringTokenizer tokens = new StringTokenizer(StatusLine);
+			StringTokenizer tokens = new StringTokenizer(statusLine);
 			tokens.nextToken(); //skip over the RTSP version
 			replyCode = Integer.parseInt(tokens.nextToken());
 
@@ -548,7 +344,7 @@ public class Client
 		}
 		catch(Exception ex)
 		{
-			System.out.println("Exception caught: "+ex);
+			System.out.println("Exception caught: " + ex);
 			System.exit(0);
 		}
 		return(replyCode);
@@ -568,31 +364,32 @@ public class Client
 	/**----------------------------------------------------------------------------------------------
 	 * Send RTSP Request.
 	 * ----------------------------------------------------------------------------------------------*/
-	private void sendRtspRequest(String requestType)
+	protected void sendRtspRequest(String requestType)
 	{
-		// Use the RTSPBufferedWriter to write to the RTSP socket
+		// Write to RTSP socket using rtspBufferedWriter
 		try
 		{
-			//write the request line:
+			// write the request line:
 			rtspBufferedWriter.write(requestType + " " + videoFileName + " RTSP/1.0" + CRLF);
 
-			//write the CSeq line:
+			// write the CSeq line:
 			rtspBufferedWriter.write("CSeq: " + rtspSequenceNumber + CRLF);
 
-			switch (requestType)
-			{
-				case "SETUP":	// send RTP packets RTP_RCV_PORT to server
-					rtspBufferedWriter.write("Transport: RTP/UDP; client_port= " + RTP_RCV_PORT + CRLF);
-				case "DESCRIBE":
-					rtspBufferedWriter.write("Accept: application/sdp" + CRLF);
-				default:
-					//otherwise, write the Session line from the RTSPid field
-					rtspBufferedWriter.write("Session: " + rtspId + CRLF);
+			// write server port for RTP packets (RTP_RCV_PORT) to 'Transport:' line in case of "SETUP" request type
+			if (requestType == "SETUP") {
+				rtspBufferedWriter.write("Transport: RTP/UDP; client_port= " + RTP_RCV_PORT + CRLF);
 			}
+			else if (requestType == "DESCRIBE") {
+				rtspBufferedWriter.write("Accept: application/sdp" + CRLF);
+			}
+			else {
+				//otherwise, write the Session line from the RTSPid field
+				rtspBufferedWriter.write("Session: " + rtspId + CRLF);
+			}
+
 			rtspBufferedWriter.flush();
 		}
-		catch(Exception ex)
-		{
+		catch(Exception ex) {
 			System.out.println("Exception caught: "+ex);
 			System.exit(0);
 		}
@@ -617,36 +414,6 @@ public class Client
 	public void setRtspSocket(Socket rtspSocket)
 	{
 		this.rtspSocket = rtspSocket;
-	}
-
-	public static BufferedReader getRtspBufferedReader()
-	{
-		return rtspBufferedReader;
-	}
-
-	public static void setRtspBufferedReader(BufferedReader rtspBufferedReader)
-	{
-		Client.rtspBufferedReader = rtspBufferedReader;
-	}
-
-	public static BufferedWriter getRtspBufferedWriter()
-	{
-		return rtspBufferedWriter;
-	}
-
-	public static void setRtspBufferedWriter(BufferedWriter rtspBufferedWriter)
-	{
-		Client.rtspBufferedWriter = rtspBufferedWriter;
-	}
-
-	public static int getCurrentState()
-	{
-		return currentState;
-	}
-
-	public static void setCurrentState(int currentState)
-	{
-		Client.currentState = currentState;
 	}
 }
 //end of Class Client
