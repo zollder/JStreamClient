@@ -109,7 +109,7 @@ public class RtpPacket
 	//--------------------------
 	//getpayload_length: return the length of the payload
 	//--------------------------
-	public int getpayload_length() {
+	public int getPayloadLength() {
 		return(payloadSize);
 	}
 
@@ -139,28 +139,28 @@ public class RtpPacket
 	//gettimestamp
 	//--------------------------
 
-	public int gettimestamp() {
+	public int getTimestamp() {
 		return(timeStamp);
 	}
 
 	//--------------------------
 	//getsequencenumber
 	//--------------------------
-	public int getsequencenumber() {
+	public int getSequenceNumber() {
 		return(sequenceNumber);
 	}
 
 	//--------------------------
 	//getpayloadtype
 	//--------------------------
-	public int getpayloadtype() {
+	public int getPayloadType() {
 		return(payloadType);
 	}
 
 	//--------------------------
 	//print headers without the SSRC
 	//--------------------------
-	public void printheader()
+	public void printHeader()
 	{
 		System.out.print("[RTP-Header] ");
 		System.out.println("Version: " + version

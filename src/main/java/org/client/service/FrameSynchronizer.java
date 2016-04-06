@@ -24,9 +24,7 @@ public class FrameSynchronizer
 	public void addFrame(Image image, int seqNum)
 	{
 		if (seqNum < currentSequenceNumber)
-		{
 			queue.add(lastImage);
-		}
 		else if (seqNum > currentSequenceNumber)
 		{
 			for (int i = currentSequenceNumber; i < seqNum; i++)
@@ -36,12 +34,12 @@ public class FrameSynchronizer
 			queue.add(image);
 		}
 		else
-		{
 			queue.add(image);
-		}
 	}
 
-	//get the next synchronized frame
+	/**--------------------------------------------------------------------------------------------
+	 * Returns next synchronized frame.
+	 * --------------------------------------------------------------------------------------------*/
 	public Image nextFrame()
 	{
 		currentSequenceNumber++;
