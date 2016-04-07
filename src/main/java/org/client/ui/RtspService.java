@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.util.StringTokenizer;
 
-import org.junit.Assert;
 
 /**----------------------------------------------------------------------------------------------
  * RtspService implementation
@@ -71,7 +70,6 @@ class RtspService
 		{
 			//parse status line and extract the reply_code:
 			String statusLine = rtspBufferedReader.readLine();
-			Assert.assertNotNull(statusLine);
 			System.out.println("RTSP Client - Received from Server:");
 			System.out.println(statusLine);
 

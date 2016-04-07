@@ -1,8 +1,5 @@
 package org.client.ui;
 
-import java.awt.Toolkit;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -15,14 +12,16 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.text.DecimalFormat;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import javafx.application.Platform;
+import javafx.concurrent.Service;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-
-import javax.swing.Timer;
 
 import org.client.MainApp;
 import org.client.model.RtpPacket;
@@ -58,23 +57,27 @@ public class StreamClientController
 	RtcpService rtcpSender;
 	DatagramSocket rtcpSocket;			// UDP socket for sending RTCP packets
 
+	private FrameSynchronizer frameSynchronizer;
+	private FrameConverter frameConverter;
+
+	private byte[] rcvBuffer;					// buffer used to store data received from the server
+	private DatagramPacket rcvUdpPacket;		// UDP packet received from the server
+	private DatagramSocket rtpSocket;			// UDP packets send/receive socket
+
+	private ScheduledExecutorService executorService;
+	private DataService dataService;
+
 	/**--------------------------------------------------------------------------------------------
 	 * Statistics variables
 	 * --------------------------------------------------------------------------------------------*/
+	double statStartTime;				//Time in milliseconds when start is pressed
 	double statDataRate;				//Rate of video data received in bytes/s
 	int statTotalBytes;					//Total number of bytes received in a session
-	double statStartTime;				//Time in milliseconds when start is pressed
 	double statTotalPlayTime;			//Time in milliseconds of video playing since beginning
 	float statFractionLost;				//Fraction of RTP data packets from sender lost since the prev packet was sent
 	int statLostPackets;				//Number of packets lost
 	int statExpectedRtpCounter;			//Expected Sequence number of RTP messages within the session
 	int statHighestSequenceNumber;		//Highest sequence number received in session
-
-	private Timer timer;						// timer used to receive data from the UDP socket
-	private TimerListener timerService;
-	private FrameSynchronizer frameSynchronizer;
-	private FrameConverter frameConverter;
-	private Toolkit toolkit;
 
 	/**--------------------------------------------------------------------------------------------
 	 * UI variables
@@ -96,18 +99,18 @@ public class StreamClientController
 	@FXML
 	private void initialize()
 	{
-		updateStats(0, 0, 0);
+		updateStatValues(0, 0, 0);
 
-		timerService = new TimerListener();
-		timer = new Timer(20, timerService);
-		timer.setInitialDelay(0);
-		timer.setCoalesce(true);
+		rcvBuffer = new byte[15000];
 
 		rtspService = new RtspService();
 		rtcpSender = new RtcpService(this);
 		frameSynchronizer = new FrameSynchronizer(100);
 
-		toolkit = Toolkit.getDefaultToolkit();
+		executorService = Executors.newScheduledThreadPool(1);
+		executorService.scheduleAtFixedRate(new Runnable() { @Override public void run() {} }, 0, 50, TimeUnit.MILLISECONDS);
+		dataService = new DataService();
+		dataService.setExecutor(executorService);
 	}
 
 	/** Handles "setup" button operation.
@@ -119,7 +122,7 @@ public class StreamClientController
 		if (currentState == INIT)
 		{
 			// initialize RTPsocket to receive packets
-			timerService.initialize(RtspService.RTP_RCV_PORT, 5);
+			initializeRtpSocket(RtspService.RTP_RCV_PORT, 5);
 
 			//init RTSP sequence number
 			rtspService.rtspSequenceNumber = 1;
@@ -146,8 +149,8 @@ public class StreamClientController
 	{
 		System.out.println("Play Button pressed!");
 
-		// initialize stats time
-		statStartTime = System.currentTimeMillis();
+		// initialize/reset stats time
+		dataService.resetStatStartTime();
 
 		if (currentState == READY)
 		{
@@ -161,7 +164,7 @@ public class StreamClientController
 				currentState = PLAYING;
 				System.out.println("New RTSP state: PLAYING");
 
-				timer.start();
+				dataService.restart();
 				rtcpSender.startSend();
 			}
 		}
@@ -186,7 +189,7 @@ public class StreamClientController
 				currentState = READY;
 				System.out.println("New RTSP state: READY");
 
-				timer.stop();
+				dataService.cancel();
 				rtcpSender.stopSend();
 			}
 		}
@@ -224,7 +227,7 @@ public class StreamClientController
 			currentState = INIT;
 			System.out.println("New RTSP state: INIT");
 
-			timer.stop();
+			dataService.cancel();
 			rtcpSender.stopSend();
 			Platform.exit();
 		}
@@ -250,122 +253,138 @@ public class StreamClientController
 		currentState = INIT;
 	}
 
-	public void updateImageView(Image image)
+	/** Initializes non-blocking RTP socket that will be used to receive data.
+	 *  @param port - datagram socket port
+	 *  @param timeout - socket timeout interval */
+	public void initializeRtpSocket(int port, int timeout)
 	{
-	}
-
-	/**----------------------------------------------------------------------------------------------
-	 * Handler for timer.
-	 * ----------------------------------------------------------------------------------------------*/
-	class TimerListener implements ActionListener
-	{
-		private Timer timer;
-
-		private byte[] rcvBuffer;					// buffer used to store data received from the server
-		private DatagramPacket rcvUdpPacket;		// UDP packet received from the server
-		private DatagramSocket rtpSocket;			// UDP packets send/receive socket
-
-		public TimerListener()
+		try
 		{
-			rcvBuffer = new byte[15000];
+			// construct a new DatagramSocket to receive RTP packets from the server, on port RTP_RCV_PORT
+			rtpSocket = new DatagramSocket(port);
+			// UDP socket for sending QoS RTCP packets
+			rtcpSocket = new DatagramSocket();
+			// set TimeOut value of the socket to 5msec.
+			rtpSocket.setSoTimeout(timeout);
 		}
-
-		/** Initializes non-blocking RTP socket that will be used to receive data.
-		 *  @param port - datagram socket port
-		 *  @param timeout - socket timeout interval */
-		public void initialize(int port, int timeout)
+		catch (SocketException se)
 		{
-			try
-			{
-				// construct a new DatagramSocket to receive RTP packets from the server, on port RTP_RCV_PORT
-				rtpSocket = new DatagramSocket(port);
-				// UDP socket for sending QoS RTCP packets
-				rtcpSocket = new DatagramSocket();
-				// set TimeOut value of the socket to 5msec.
-				rtpSocket.setSoTimeout(timeout);
-			}
-			catch (SocketException se)
-			{
-				System.out.println("Socket exception: "+se);
-				System.exit(0);
-			}
-		}
-
-		@Override
-		public void actionPerformed(ActionEvent e)
-		{
-			// Construct a DatagramPacket to receive data from the UDP socket
-			rcvUdpPacket = new DatagramPacket(rcvBuffer, rcvBuffer.length);
-
-			try
-			{
-				//receive the DP from the socket, save time for stats
-				rtpSocket.receive(rcvUdpPacket);
-
-				double curTime = System.currentTimeMillis();
-				statTotalPlayTime += curTime - statStartTime;
-				statStartTime = curTime;
-
-				//create an RTPpacket object from the DP
-				RtpPacket rtpPacket = new RtpPacket(rcvUdpPacket.getData(), rcvUdpPacket.getLength());
-				int sequenceNumber = rtpPacket.getSequenceNumber();
-
-				//this is the highest seq num received
-
-				//print important header fields of the RTP packet received:
-				System.out.println("Got RTP packet with SeqNum # " + sequenceNumber
-								   + " TimeStamp " + rtpPacket.getTimestamp() + " ms, of type "
-								   + rtpPacket.getPayloadType());
-
-				//print header bitstream:
-				rtpPacket.printHeader();
-
-				//get the payload bitstream from the RTPpacket object
-				int payloadLength = rtpPacket.getPayloadLength();
-				byte [] payload = new byte[payloadLength];
-				rtpPacket.getpayload(payload);
-
-				//compute stats and update the label in GUI
-				statExpectedRtpCounter++;
-				if (sequenceNumber > statHighestSequenceNumber)
-				{
-					statHighestSequenceNumber = sequenceNumber;
-				}
-				if (statExpectedRtpCounter != sequenceNumber)
-				{
-					statLostPackets++;
-				}
-				statDataRate = statTotalPlayTime == 0 ? 0 : (statTotalBytes / (statTotalPlayTime / 1000.0));
-				statFractionLost = (float)statLostPackets / statHighestSequenceNumber;
-				statTotalBytes += payloadLength;
-
-				// update statistics
-				updateStats(statTotalBytes, statFractionLost, statDataRate);
-
-				//display the image
-				//get an Image object from the payload bytestream
-				frameSynchronizer.addFrame(toolkit.createImage(payload, 0, payloadLength), sequenceNumber);
-				Image fxImage = frameConverter.convertImage(frameSynchronizer.nextFrame());
-				imageView.setImage(fxImage);
-			}
-			catch (InterruptedIOException iioe)
-			{
-				System.out.println("Nothing to read");
-			}
-			catch (IOException ioe)
-			{
-				System.out.println("Exception caught: "+ioe);
-			}
+			System.out.println("Socket exception: "+se);
+			System.exit(0);
 		}
 	}
 
 	/**
-	 * Updates statistics data labels.
+	 * Implements a service that encapsulates raw data retrieval and processing task.
+	 * The following work is performed by the service on each call:
+	 * 1. constructs a datagram packet and receives data from UDP socket;
+	 * 2. constructs an RTP packet object from the datagram packet created in 1.;
+	 * 3. retrieves payload (raw data) from the RTP packet;
+	 * 4. builds an Image from raw data and wraps it into the ImageView node, which is finally returned;
+	 * 5. calculates and populates statistical data.
+	 */
+	class DataService extends Service<ImageView>
+	{
+		public DataService()
+		{
+		}
+
+		@Override
+		protected Task<ImageView> createTask()
+		{
+			Task<ImageView> task = new Task<ImageView>() {
+				@Override
+				protected ImageView call() throws Exception
+				{
+					try
+					{
+						// Construct a DatagramPacket to receive data from the UDP socket
+						rcvUdpPacket = new DatagramPacket(rcvBuffer, rcvBuffer.length);
+
+						//receive the DP from the socket, save time for stats
+						rtpSocket.receive(rcvUdpPacket);
+
+						double curTime = System.currentTimeMillis();
+						statTotalPlayTime += curTime - statStartTime;
+						statStartTime = curTime;
+
+						//create an RTPpacket object from the DP
+						RtpPacket rtpPacket = new RtpPacket(rcvUdpPacket.getData(), rcvUdpPacket.getLength());
+						int sequenceNumber = rtpPacket.getSequenceNumber();
+
+						//this is the highest seq num received
+
+						//print important header fields of the RTP packet received:
+						System.out.println("Got RTP packet with SeqNum # " + sequenceNumber
+										   + " TimeStamp " + rtpPacket.getTimestamp() + " ms, of type "
+										   + rtpPacket.getPayloadType());
+
+						//print header bitstream:
+						rtpPacket.printHeader();
+
+						//get the payload bitstream from the RTPpacket object
+						int payloadLength = rtpPacket.getPayloadLength();
+						byte [] payload = new byte[payloadLength];
+						rtpPacket.getpayload(payload);
+
+						//compute stats and update the label in GUI
+						statExpectedRtpCounter++;
+						if (sequenceNumber > statHighestSequenceNumber)
+						{
+							statHighestSequenceNumber = sequenceNumber;
+						}
+						if (statExpectedRtpCounter != sequenceNumber)
+						{
+							statLostPackets++;
+						}
+						statDataRate = statTotalPlayTime == 0 ? 0 : (statTotalBytes / (statTotalPlayTime / 1000.0));
+						statFractionLost = (float)statLostPackets / statHighestSequenceNumber;
+						statTotalBytes += payloadLength;
+
+						// update statistics
+//						updateStatValues(statTotalBytes, statFractionLost, statDataRate);
+
+						//display the image
+						//get an Image object from the payload bytestream
+//						frameSynchronizer.addFrame(toolkit.createImage(payload, 0, payloadLength), sequenceNumber);
+//						Image fxImage = frameConverter.convertImage(frameSynchronizer.nextFrame());
+//						imageView.setImage(fxImage);
+					}
+					catch (InterruptedIOException iioe)
+					{
+						System.out.println("Nothing to read");
+					}
+					catch (IOException ioe)
+					{
+						System.out.println("Exception caught: "+ioe);
+					}
+					return null;
+				}
+			};
+			return task;
+		}
+
+		@Override
+		protected void succeeded() {
+			DecimalFormat formatter = new DecimalFormat("###,###.##");
+			bytesReceived.setText(String.valueOf(statTotalBytes));
+			packetsLost.setText(formatter.format(statFractionLost));
+			dataRate.setText(formatter.format(statDataRate));
+		};
+		/** Initializes (resets) statistics start time. */
+		public void resetStatStartTime()
+		{
+			statStartTime = System.currentTimeMillis();
+		}
+	}
+
+	/**
+	 * Updates statistics data properties.
 	 * @param bytesReceived
 	 * @param fractionLost
 	 * @param dataRate
 	 */
-	public void updateStats(int bytesReceived, float fractionLost, double dataRate)
+	public void updateStatValues(int bytesReceived, float fractionLost, double dataRate)
 	{
 		DecimalFormat formatter = new DecimalFormat("###,###.##");
 		this.bytesReceived.setText(String.valueOf(bytesReceived));

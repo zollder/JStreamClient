@@ -30,7 +30,6 @@ task fatJar(type: Jar) {
 repositories { mavenCentral() }
 
 dependencies {
-	compile("org.reactfx:reactfx:2.0-M4u1")
     compile("commons-collections:commons-collections:3.2")
 }
 
