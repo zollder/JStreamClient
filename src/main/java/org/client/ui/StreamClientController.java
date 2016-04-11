@@ -1,5 +1,6 @@
 package org.client.ui;
 
+import java.awt.Toolkit;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -12,20 +13,22 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.text.DecimalFormat;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import javafx.application.Platform;
-import javafx.concurrent.Service;
+import javafx.concurrent.ScheduledService;
 import javafx.concurrent.Task;
+import javafx.embed.swing.SwingNode;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
-import javafx.scene.image.ImageView;
+import javafx.scene.image.Image;
+import javafx.scene.layout.HBox;
+import javafx.util.Duration;
+
+import javax.swing.ImageIcon;
+import javax.swing.JLabel;
 
 import org.client.MainApp;
 import org.client.model.RtpPacket;
-import org.client.service.FrameConverter;
 import org.client.service.FrameSynchronizer;
 
 public class StreamClientController
@@ -57,14 +60,10 @@ public class StreamClientController
 	RtcpService rtcpSender;
 	DatagramSocket rtcpSocket;			// UDP socket for sending RTCP packets
 
-	private FrameSynchronizer frameSynchronizer;
-	private FrameConverter frameConverter;
-
 	private byte[] rcvBuffer;					// buffer used to store data received from the server
 	private DatagramPacket rcvUdpPacket;		// UDP packet received from the server
 	private DatagramSocket rtpSocket;			// UDP packets send/receive socket
 
-	private ScheduledExecutorService executorService;
 	private DataService dataService;
 
 	/**--------------------------------------------------------------------------------------------
@@ -82,7 +81,7 @@ public class StreamClientController
 	/**--------------------------------------------------------------------------------------------
 	 * UI variables
 	 * --------------------------------------------------------------------------------------------*/
-	@FXML private ImageView imageView;
+	@FXML private HBox imageContainer;
 	@FXML private Label bytesReceived;
 	@FXML private Label packetsLost;
 	@FXML private Label dataRate;
@@ -93,7 +92,8 @@ public class StreamClientController
 	public StreamClientController() {}
 
    /**--------------------------------------------------------------------------------------------
-    * Initializes the controller class. This method is automatically called after the fxml file has been loaded.
+    * Initializes the controller class.
+    * This method is automatically called after the fxml file has been loaded.
     * @throws IOException
     * --------------------------------------------------------------------------------------------*/
 	@FXML
@@ -102,15 +102,9 @@ public class StreamClientController
 		updateStatValues(0, 0, 0);
 
 		rcvBuffer = new byte[15000];
-
 		rtspService = new RtspService();
 		rtcpSender = new RtcpService(this);
-		frameSynchronizer = new FrameSynchronizer(100);
-
-		executorService = Executors.newScheduledThreadPool(1);
-		executorService.scheduleAtFixedRate(new Runnable() { @Override public void run() {} }, 0, 50, TimeUnit.MILLISECONDS);
-		dataService = new DataService();
-		dataService.setExecutor(executorService);
+		dataService = new DataService(100);
 	}
 
 	/** Handles "setup" button operation.
@@ -283,18 +277,33 @@ public class StreamClientController
 	 * 4. builds an Image from raw data and wraps it into the ImageView node, which is finally returned;
 	 * 5. calculates and populates statistical data.
 	 */
-	class DataService extends Service<ImageView>
+	class DataService extends ScheduledService<Image>
 	{
-		public DataService()
+		private FrameSynchronizer frameSynchronizer;
+		SwingNode swingNode = new SwingNode();
+		JLabel iconLabel = new JLabel();
+		ImageIcon icon;
+
+		public DataService(double period)
 		{
+			frameSynchronizer = new FrameSynchronizer(100);
+			this.setPeriod(Duration.millis(50));
+			this.setDelay(this.getPeriod());
+			imageContainer.getChildren().add(swingNode);
+
+			// update UI components
+			this.setOnSucceeded(state -> {
+				swingNode.setContent(iconLabel);
+				updateStatValues(statTotalBytes, statFractionLost, statDataRate);
+			});
 		}
 
 		@Override
-		protected Task<ImageView> createTask()
+		protected Task<Image> createTask()
 		{
-			Task<ImageView> task = new Task<ImageView>() {
+			return new Task<Image>() {
 				@Override
-				protected ImageView call() throws Exception
+				protected Image call() throws Exception
 				{
 					try
 					{
@@ -337,18 +346,17 @@ public class StreamClientController
 						{
 							statLostPackets++;
 						}
-						statDataRate = statTotalPlayTime == 0 ? 0 : (statTotalBytes / (statTotalPlayTime / 1000.0));
+						statDataRate = statTotalPlayTime == 0 ? 0 : (statTotalBytes / (statTotalPlayTime/1000.0));
 						statFractionLost = (float)statLostPackets / statHighestSequenceNumber;
 						statTotalBytes += payloadLength;
 
-						// update statistics
-//						updateStatValues(statTotalBytes, statFractionLost, statDataRate);
+						//get an Image object from the payload bitstream
+						Toolkit toolkit = Toolkit.getDefaultToolkit();
+						frameSynchronizer.addFrame(toolkit.createImage(payload, 0, payloadLength), sequenceNumber);
 
-						//display the image
-						//get an Image object from the payload bytestream
-//						frameSynchronizer.addFrame(toolkit.createImage(payload, 0, payloadLength), sequenceNumber);
-//						Image fxImage = frameConverter.convertImage(frameSynchronizer.nextFrame());
-//						imageView.setImage(fxImage);
+						//display the image as an ImageIcon object
+						icon = new ImageIcon(frameSynchronizer.nextFrame());
+						iconLabel.setIcon(icon);
 					}
 					catch (InterruptedIOException iioe)
 					{
@@ -356,21 +364,13 @@ public class StreamClientController
 					}
 					catch (IOException ioe)
 					{
-						System.out.println("Exception caught: "+ioe);
+						System.out.println("Exception caught: "+ ioe);
 					}
 					return null;
 				}
 			};
-			return task;
 		}
 
-		@Override
-		protected void succeeded() {
-			DecimalFormat formatter = new DecimalFormat("###,###.##");
-			bytesReceived.setText(String.valueOf(statTotalBytes));
-			packetsLost.setText(formatter.format(statFractionLost));
-			dataRate.setText(formatter.format(statDataRate));
-		};
 		/** Initializes (resets) statistics start time. */
 		public void resetStatStartTime()
 		{
@@ -384,12 +384,12 @@ public class StreamClientController
 	 * @param fractionLost
 	 * @param dataRate
 	 */
-	public void updateStatValues(int bytesReceived, float fractionLost, double dataRate)
+	public void updateStatValues(int received, float lost, double rate)
 	{
 		DecimalFormat formatter = new DecimalFormat("###,###.##");
-		this.bytesReceived.setText(String.valueOf(bytesReceived));
-		this.packetsLost.setText(formatter.format(fractionLost));
-		this.dataRate.setText(formatter.format(dataRate));
+		this.bytesReceived.setText(String.valueOf(received));
+		this.packetsLost.setText(formatter.format(lost));
+		this.dataRate.setText(formatter.format(rate));
 	}
 
 	/** Is called by the main application to give a reference back to itself.

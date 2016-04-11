@@ -2,10 +2,14 @@ package org.client.service;
 
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 
 import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.image.Image;
+
+import javax.imageio.ImageIO;
 
 
 /**--------------------------------------------------------------------------------------------------------
@@ -25,6 +29,14 @@ public class FrameConverter
 		    graphics.dispose();
 		}
 		Image fxImage = SwingFXUtils.toFXImage(bImg, null);
+		return fxImage;
+	}
+
+	public Image convert(byte[] imageAsBytes) throws IOException
+	{
+		InputStream in = new ByteArrayInputStream(imageAsBytes);
+		BufferedImage bufferedimage = ImageIO.read(in);
+		Image fxImage = SwingFXUtils.toFXImage(bufferedimage, null);
 		return fxImage;
 	}
 }

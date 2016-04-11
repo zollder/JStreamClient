@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.scene.text.*?>
 <?import javafx.scene.image.*?>
 <?import javafx.scene.control.*?>
 <?import java.lang.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.layout.AnchorPane?>
 
-<AnchorPane prefHeight="450.0" prefWidth="350.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.client.ui.StreamClientController">
+<AnchorPane prefHeight="380.0" prefWidth="350.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.client.ui.StreamClientController">
    <children>
-      <Pane layoutY="350.0" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity" prefHeight="70.0" prefWidth="350.0" AnchorPane.bottomAnchor="30.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="350.0">
+      <HBox fx:id="imageContainer" fillHeight="false" prefHeight="280.0" prefWidth="350.0" AnchorPane.bottomAnchor="100.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+      <Pane layoutY="350.0" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity" prefHeight="70.0" prefWidth="350.0" AnchorPane.bottomAnchor="30.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="280.0">
          <children>
-            <GridPane layoutX="8.0" layoutY="4.0" prefHeight="56.0" prefWidth="332.0">
+            <GridPane layoutX="8.0" layoutY="13.0" prefHeight="50.0" prefWidth="332.0">
               <columnConstraints>
                 <ColumnConstraints hgrow="SOMETIMES" maxWidth="162.0" minWidth="10.0" prefWidth="160.0" />
                 <ColumnConstraints hgrow="SOMETIMES" maxWidth="192.0" minWidth="10.0" prefWidth="175.0" />
@@ -21,16 +23,34 @@
                 <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
               </rowConstraints>
                <children>
-                  <Label text="Total bytes received:" />
-                  <Label text="Packets lost:" GridPane.rowIndex="1" />
-                  <Label text="Data rate (byte/sec):" GridPane.rowIndex="2" />
-                  <Label fx:id="bytesReceived" text="Label" GridPane.columnIndex="1" />
-                  <Label fx:id="packetsLost" text="Label" GridPane.columnIndex="1" GridPane.rowIndex="1" />
-                  <Label fx:id="dataRate" text="Label" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                  <Label text="Total bytes received:">
+                     <font>
+                        <Font size="11.0" />
+                     </font></Label>
+                  <Label text="Packets lost:" GridPane.rowIndex="1">
+                     <font>
+                        <Font size="11.0" />
+                     </font></Label>
+                  <Label text="Data rate (byte/sec):" GridPane.rowIndex="2">
+                     <font>
+                        <Font size="11.0" />
+                     </font></Label>
+                  <Label fx:id="bytesReceived" text="Label" GridPane.columnIndex="1">
+                     <font>
+                        <Font size="11.0" />
+                     </font></Label>
+                  <Label fx:id="packetsLost" text="Label" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                     <font>
+                        <Font size="11.0" />
+                     </font></Label>
+                  <Label fx:id="dataRate" text="Label" GridPane.columnIndex="1" GridPane.rowIndex="2">
+                     <font>
+                        <Font size="11.0" />
+                     </font></Label>
                </children>
             </GridPane>
          </children></Pane>
-      <ToolBar layoutY="420.0" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity" prefHeight="30.0" prefWidth="350.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="420.0">
+      <ToolBar layoutY="350.0" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity" prefHeight="30.0" prefWidth="350.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="350.0">
         <items>
           <Button mnemonicParsing="false" onAction="#setup" text="Setup" />
             <Button mnemonicParsing="false" onAction="#play" text="Play" />
@@ -39,6 +59,5 @@
             <Button mnemonicParsing="false" onAction="#close" text="Close" />
         </items>
       </ToolBar>
-      <ImageView fx:id="imageView" fitHeight="280.0" fitWidth="350.0" pickOnBounds="true" preserveRatio="true" AnchorPane.bottomAnchor="170.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
    </children>
 </AnchorPane>

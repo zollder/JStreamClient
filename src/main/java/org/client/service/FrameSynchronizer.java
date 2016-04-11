@@ -4,7 +4,7 @@ import java.awt.Image;
 import java.util.ArrayDeque;
 
 /**--------------------------------------------------------------------------------------------
- * Frame synchronizer implementation. TODO: please refactor
+ * Frame synchronizer implementation. TODO: needs refactoring
  * --------------------------------------------------------------------------------------------*/
 public class FrameSynchronizer
 {
